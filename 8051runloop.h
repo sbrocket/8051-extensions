@@ -25,14 +25,18 @@
 
 #define MILLISECOND_GRANULARITY 1
 #define SYSTEM_CLOCK SYSCLK				// The system clock speed in Hz
-typedef void (*loopCallbackFunc)(void);
+typedef void (*timedCallbackFunc)(void);
+typedef void (*eventCallbackFunc)(void);
 
 //-----------------------------------------------------------------------------
 // Public function prototypes
 //-----------------------------------------------------------------------------
 void initRunLoop();
 void runLoopCycle();
-void scheduleTimedCallbackInRunLoop(loopCallbackFunc funcPtr, float sec);
+void timer0Interrupt();
+void waitForTime(float sec);
+void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec);
+void registerForEventCallbacksOnPinInRunLoop(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin );
 
 #endif
 
