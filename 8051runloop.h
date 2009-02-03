@@ -23,7 +23,7 @@
 #ifndef __INCLUDED_8051runloop__
 #define __INCLUDED_8051runloop__
 
-#define MILLISECOND_GRANULARITY 1
+#define MILLISECOND_GRANULARITY 10		// Milliseconds between interrupts
 #define SYSTEM_CLOCK SYSCLK				// The system clock speed in Hz
 typedef void (*timedCallbackFunc)(void);
 typedef void (*eventCallbackFunc)(void);
@@ -33,10 +33,11 @@ typedef void (*eventCallbackFunc)(void);
 //-----------------------------------------------------------------------------
 void initRunLoop();
 void runLoopCycle();
-void timer0Interrupt();
 void waitForTime(float sec);
 void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec);
 void registerForEventCallbacksOnPinInRunLoop(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin );
+
+void timer0ISR() __interrupt (1);
 
 #endif
 
@@ -50,6 +51,10 @@ void registerForEventCallbacksOnPinInRunLoop(eventCallbackFunc funcPtr, unsigned
 //   while (1) {
 //	   runLoopCycle();
 //   }
+// }
+//
+// void timer0ISR() interrupt 1 {
+//   timer0Interrupt();
 // }
 //
 //-----------------------------------------------------------------------------

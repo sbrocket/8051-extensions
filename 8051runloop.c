@@ -51,19 +51,21 @@ float roundNum(float n);
 //-----------------------------------------------------------------------------
 
 unsigned int timerReloadVal;
+unsigned char highReloadVal;
+unsigned char lowReloadVal;
 
 // Globals used for callback scheduling
 unsigned char scheduledCount, maxScheduleSize;
-unsigned long millisecondCount;
+volatile unsigned long millisecondCount;
 
-timedCallbackFunc** timedCallbackArray;
+timedCallbackFunc* timedCallbackArray;
 unsigned long* timeScheduledArray;
 
 // Globals used for event registering
 unsigned char registeredCount, maxRegisterSize;
 unsigned long lastPoll;
 
-eventCallbackFunc** eventCallbackArray;
+eventCallbackFunc* eventCallbackArray;
 struct PortPin* registeredPins;
 unsigned char* curPinStates;
 
@@ -80,7 +82,7 @@ void initRunLoop() {
 	scheduledCount = 0;
 	maxScheduleSize = 5;
 	
-	timedCallbackArray = (timedCallbackFunc**)malloc(maxScheduleSize*sizeof(timedCallbackFunc*));
+	timedCallbackArray = (timedCallbackFunc*)malloc(maxScheduleSize*sizeof(timedCallbackFunc));
 	checkForNullPtr(timedCallbackArray);
 	timeScheduledArray = (unsigned long*)malloc(maxScheduleSize*sizeof(unsigned long));
 	checkForNullPtr(timeScheduledArray);
@@ -89,7 +91,7 @@ void initRunLoop() {
 	lastPoll = 0;
 	maxRegisterSize = 5;
 	
-	eventCallbackArray = (eventCallbackFunc**)malloc(maxRegisterSize*sizeof(eventCallbackFunc*));
+	eventCallbackArray = (eventCallbackFunc*)malloc(maxRegisterSize*sizeof(eventCallbackFunc));
 	checkForNullPtr(eventCallbackArray);
 	registeredPins = (struct PortPin*)malloc(maxRegisterSize*sizeof(struct PortPin));
 	checkForNullPtr(registeredPins);
@@ -101,17 +103,19 @@ void runLoopCycle() {
 	unsigned int i;
 	unsigned char bitMask;
 	bit oldPinState, pinState;
+	timedCallbackFunc func;
 	
 	// Check whether any registered input pins have changed state
 	// Polls pins at a freqency of ~100Hz
 	if (millisecondCount - lastPoll > 10) {
+		lastPoll = millisecondCount;
 		for (i = 0; i < registeredCount; ++i) {
 			bitMask = 0x01 << (i % 8);
 			oldPinState = curPinStates[i/8] & bitMask;
 			pinState = getPinState(&registeredPins[i]);
 			
 			if (oldPinState != pinState) {
-				(*(eventCallbackArray[i]));
+				(*eventCallbackArray[i])();
 				if (pinState)
 					curPinStates[i/8] |= bitMask;
 				else
@@ -125,11 +129,9 @@ void runLoopCycle() {
 		if (timeScheduledArray[i-1] > millisecondCount)
 			break;
 		
-		(*(timedCallbackArray[i-1]));	// call scheduled function
+		(*timedCallbackArray[i-1])();	// call scheduled function
 		--scheduledCount;
 	}
-
-	printf("<DEBUG> Millsecond count: %d\n\r", millisecondCount);
 }
 
 void waitForTime(float sec) {
@@ -148,7 +150,7 @@ void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec) {
 	if (scheduledCount == maxScheduleSize)
 		growSchedulingArrays();
 	
-	timeToSchedule = millisecondCount + (unsigned char)(sec*1000);
+	timeToSchedule = millisecondCount + (unsigned long)(sec*1000);
 	insertInd = scheduledCount;
 	while (insertInd > 0 && timeScheduledArray[insertInd-1] < timeToSchedule) { 
 		--insertInd;
@@ -195,8 +197,11 @@ void registerForEventCallbacksOnPinInRunLoop(eventCallbackFunc funcPtr, unsigned
 //-----------------------------------------------------------------------------
 
 void initTimer0() {
-	if (!timerReloadVal)
+	if (!timerReloadVal) {
 		timerReloadVal = roundNum(65536-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0))/1000);
+		highReloadVal = timerReloadVal / 256;
+		lowReloadVal = timerReloadVal % 256;
+	}
 	
 	CKCON &= ~0x08;				// set Timer0 source to SYSCLK/12
 	TMOD &= ~0x0E;				
@@ -204,19 +209,17 @@ void initTimer0() {
 	EA = 1;						// enable global interrupts
 	ET0 = 1;					// enable Timer0 interrupt
 	
-	TH0 = timerReloadVal / 256;
-	TL0 = timerReloadVal % 256;	// reset Timer0 counter to calc'd reload value
+	TH0 = highReloadVal;
+	TL0 = lowReloadVal;			// reset Timer0 counter to calc'd reload value
 	TR0 = 1;					// enable Timer0
 }
 
-void timer0Interrupt() {
+void timer0ISR() __interrupt (1) {
 	millisecondCount += MILLISECOND_GRANULARITY;
 	
 	// Reset the timer
-	TR0 = 0;					// disable Timer0
-	TH0 = timerReloadVal / 256;
-	TL0 = timerReloadVal % 256;	// reset Timer0 counter to calc'd reload value
-	TR0 = 1;					// enable Timer0
+	TH0 = highReloadVal;
+	TL0 = lowReloadVal;			// reset Timer0 counter to calc'd reload value
 }
 
 void growSchedulingArrays() {
@@ -232,7 +235,7 @@ void growSchedulingArrays() {
 	}
 	
 	// Grow the arrays using realloc
-	timedCallbackArray = (timedCallbackFunc**)realloc(timedCallbackArray, maxScheduleSize*sizeof(timedCallbackFunc*));
+	timedCallbackArray = (timedCallbackFunc*)realloc(timedCallbackArray, maxScheduleSize*sizeof(timedCallbackFunc));
 	checkForNullPtr(timedCallbackArray);
 	timeScheduledArray = (unsigned long*)realloc(timeScheduledArray, maxScheduleSize*sizeof(unsigned long));
 	checkForNullPtr(timeScheduledArray);
@@ -251,7 +254,7 @@ void growEventRegisterArrays() {
 	}
 	
 	// Grow the arrays using realloc
-	eventCallbackArray = (eventCallbackFunc**)realloc(eventCallbackArray, maxRegisterSize*sizeof(eventCallbackFunc*));
+	eventCallbackArray = (eventCallbackFunc*)realloc(eventCallbackArray, maxRegisterSize*sizeof(eventCallbackFunc));
 	checkForNullPtr(eventCallbackArray);
 	registeredPins = (struct PortPin*)realloc(registeredPins, maxRegisterSize*sizeof(struct PortPin));
 	checkForNullPtr(registeredPins);
