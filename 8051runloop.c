@@ -21,8 +21,12 @@
 //-----------------------------------------------------------------------------
 
 #include "8051runloop.h"
+
+#include <c8051_SDCC.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include <limits.h>
 
 //-----------------------------------------------------------------------------
 // Private function prototypes
@@ -32,7 +36,8 @@ void initTimer0();
 void timer0ISR() interrupt 1;
 void makeSpaceAtFrontOfArrays();
 void growSchedulingArrays();
-void checkForNullPtr();
+void checkForNullPtr(void *p);
+float roundNum(float n);
 
 //-----------------------------------------------------------------------------
 // Global declaractions
@@ -43,7 +48,7 @@ unsigned int maxScheduleSize;
 unsigned int timerReloadVal;
 unsigned long millisecondCount;
 
-loopCallbackFunc* callbackArray;
+loopCallbackFunc** callbackArray;
 unsigned long* timeScheduledArray;
 
 //-----------------------------------------------------------------------------
@@ -65,27 +70,34 @@ void initRunLoop() {
 }
 
 void runLoopCycle() {
+	unsigned int i;
+	
+	TR0 = 1;
+	
 	// Check whether any scheduled callbacks have expired
-	for (unsigned int i = scheduledCount-1; i >= 0; --i) {
-		if (timeScheduledArray[i] > millisecondCount)
+	for (i = scheduledCount; i > 0; --i) {
+		if (timeScheduledArray[i-1] > millisecondCount)
 			break;
 		
-		(*(callbackArray[i]));	// call scheduled function
+		(*(callbackArray[i-1]));	// call scheduled function
 		--scheduledCount;
 	}
 }
 
 void scheduleTimedCallbackInRunLoop(loopCallbackFunc funcPtr, float sec) {
+	unsigned int i, insertInd;
+	unsigned long timeToSchedule;
+	
 	if (scheduledCount == maxScheduleSize)
 		growSchedulingArrays();
 	
-	unsigned long timeToSchedule = millisecondCount + (unsigned char)(sec*1000);
-	unsigned int insertInd = scheduledCount;
+	timeToSchedule = millisecondCount + (unsigned char)(sec*1000);
+	insertInd = scheduledCount;
 	while (insertInd > 0 && timeScheduledArray[insertInd-1] < timeToSchedule) { 
-		--i;
+		--insertInd;
 	}
 	
-	for (unsigned int i = scheduledCount; i > insertInd; --i) {
+	for (i = scheduledCount; i > insertInd; --i) {
 		callbackArray[i] = callbackArray[i-1];
 		timeScheduledArray[i] = timeScheduledArray[i-1];
 	}
@@ -102,7 +114,7 @@ void scheduleTimedCallbackInRunLoop(loopCallbackFunc funcPtr, float sec) {
 
 void initTimer0() {
 	if (!timerReloadVal)
-		timerReloadVal = round(pow(2,16)-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0))/1000);
+		timerReloadVal = roundNum(65536-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0))/1000);
 	
 	CKCON &= ~0x08;				// set Timer0 source to SYSCLK/12
 	TMOD |= 0x01;				// set Timer0 to Mode 1 (16-bit timer), etc
@@ -111,7 +123,6 @@ void initTimer0() {
 	
 	TH0 = timerReloadVal / 256;
 	TL0 = timerReloadVal % 256;	// reset Timer0 counter to calc'd reload value
-	TR0 = 1;					// enable Timer0
 }
 
 void timer0ISR() interrupt 1 {
@@ -131,7 +142,7 @@ void growSchedulingArrays() {
 	} else if (maxScheduleSize == UINT_MAX) {
 		printf("<ERROR> Attempted to schedule more than UINT_MAX (%d) timer callbacks!\n\r", UINT_MAX);
 		printf("<ERROR> Exiting - unable to continue.\n\r");
-		exit(1);
+		*(NULL);		// no exit() func in SDCC stdlib.h, so we make our own
 	} else {
 		maxScheduleSize = UINT_MAX;
 	}
@@ -139,7 +150,7 @@ void growSchedulingArrays() {
 	// Grow the arrays using realloc
 	callbackArray = (loopCallbackFunc**)realloc(callbackArray, maxScheduleSize*sizeof(loopCallbackFunc*));
 	checkForNullPtr(callbackArray);
-	timeScheduledArray = (unsigned long*)realloc(maxScheduleSize*sizeof(unsigned long));
+	timeScheduledArray = (unsigned long*)realloc(timeScheduledArray, maxScheduleSize*sizeof(unsigned long));
 	checkForNullPtr(timeScheduledArray);
 }
 
@@ -147,6 +158,14 @@ void checkForNullPtr(void *p) {
 	if (p == NULL) {
 		printf("<ERROR> Unable to allocate necessary memory!\n\r");
 		printf("<ERROR> Exiting - unable to continue.\n\r");
-		exit(2);
+		*(NULL);		// no exit() func in SDCC stdlib.h, so we make our own
 	}
+}
+
+float roundNum(float n) {
+	float intPart = floorf(n);
+	if (n-intPart >= 0.5)
+		return intPart+1;
+	else
+		return intPart;
 }
