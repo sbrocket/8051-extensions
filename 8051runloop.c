@@ -50,9 +50,7 @@ float roundNum(float n);
 // Global declaractions
 //-----------------------------------------------------------------------------
 
-unsigned int timerReloadVal;
-unsigned char highReloadVal;
-unsigned char lowReloadVal;
+unsigned char highReloadVal, lowReloadVal;
 
 // Globals used for callback scheduling
 unsigned char scheduledCount, maxScheduleSize;
@@ -75,8 +73,6 @@ unsigned char* curPinStates;
 
 void initRunLoop() {
 	initTimer0();
-	
-	timerReloadVal = 0;
 	
 	millisecondCount = 0;
 	scheduledCount = 0;
@@ -103,11 +99,10 @@ void runLoopCycle() {
 	unsigned int i;
 	unsigned char bitMask;
 	bit oldPinState, pinState;
-	timedCallbackFunc func;
 	
 	// Check whether any registered input pins have changed state
-	// Polls pins at a freqency of ~100Hz
-	if (millisecondCount - lastPoll > 10) {
+	// Polls pins at a freqency of ~10Hz
+	if (millisecondCount - lastPoll > 100) {
 		lastPoll = millisecondCount;
 		for (i = 0; i < registeredCount; ++i) {
 			bitMask = 0x01 << (i % 8);
@@ -168,7 +163,7 @@ void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec) {
 }
 
 
-void registerForEventCallbacksOnPinInRunLoop(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin) {
+void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin, bit initCall) {
 	unsigned char bitMask, ind = registeredCount;
 
 	if (registeredCount == maxRegisterSize)
@@ -190,6 +185,9 @@ void registerForEventCallbacksOnPinInRunLoop(eventCallbackFunc funcPtr, unsigned
 		curPinStates[ind/8] &= ~bitMask;
 	
 	++registeredCount;
+
+	if (initCall)
+		(*funcPtr)();
 }
 
 //-----------------------------------------------------------------------------
@@ -197,11 +195,9 @@ void registerForEventCallbacksOnPinInRunLoop(eventCallbackFunc funcPtr, unsigned
 //-----------------------------------------------------------------------------
 
 void initTimer0() {
-	if (!timerReloadVal) {
-		timerReloadVal = roundNum(65536-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0))/1000);
-		highReloadVal = timerReloadVal / 256;
-		lowReloadVal = timerReloadVal % 256;
-	}
+	unsigned int timerReloadVal = roundNum(65536-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0))/1000);
+	highReloadVal = timerReloadVal / 256;
+	lowReloadVal = timerReloadVal % 256;
 	
 	CKCON &= ~0x08;				// set Timer0 source to SYSCLK/12
 	TMOD &= ~0x0E;				
@@ -278,55 +274,18 @@ float roundNum(float n) {
 		return intPart;
 }
 
-// Really nasty function, but necessary since there's no
-// easier way to work with the sbits
 bit getPinState(struct PortPin* p) {
+	unsigned char bitMask = 0x1 << p->pin, result=0;
+
 	switch (p->port) {
-		case 0:
-			switch (p->pin) {
-				case 0: return P0_0;
-				case 1: return P0_1;
-				case 2: return P0_2;
-				case 3: return P0_3;
-				case 4: return P0_4;
-				case 5: return P0_5;
-				case 6: return P0_6;
-				case 7: return P0_7;
-			}
-		case 1:
-			switch (p->pin) {
-				case 0: return P1_0;
-				case 1: return P1_1;
-				case 2: return P1_2;
-				case 3: return P1_3;
-				case 4: return P1_4;
-				case 5: return P1_5;
-				case 6: return P1_6;
-				case 7: return P1_7;
-			}
-		case 2:
-			switch (p->pin) {
-				case 0: return P2_0;
-				case 1: return P2_1;
-				case 2: return P2_2;
-				case 3: return P2_3;
-				case 4: return P2_4;
-				case 5: return P2_5;
-				case 6: return P2_6;
-				case 7: return P2_7;
-			}
-		case 3:
-			switch (p->pin) {
-				case 0: return P3_0;
-				case 1: return P3_1;
-				case 2: return P3_2;
-				case 3: return P3_3;
-				case 4: return P3_4;
-				case 5: return P3_5;
-				case 6: return P3_6;
-				case 7: return P3_7;
-			}
+		case 0: result = P0 & bitMask; break;
+		case 1: result = P1 & bitMask; break;
+		case 2: result = P2 & bitMask; break;
+		case 3: result = P3 & bitMask; break;
 	}
 
-	return 0;
+	if (result)
+		return 1;
+	else
+		return 0;
 }

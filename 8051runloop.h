@@ -35,7 +35,7 @@ void initRunLoop();
 void runLoopCycle();
 void waitForTime(float sec);
 void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec);
-void registerForEventCallbacksOnPinInRunLoop(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin );
+void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin, bit initCall);
 
 void timer0ISR() __interrupt (1);
 
