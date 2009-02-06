@@ -96,8 +96,8 @@ void initRunLoop() {
 }
 
 void runLoopCycle() {
-	unsigned int i;
-	unsigned char bitMask;
+	__xdata unsigned int i;
+	__xdata unsigned char bitMask;
 	bit oldPinState, pinState;
 	
 	// Check whether any registered input pins have changed state
@@ -140,7 +140,7 @@ void waitForTime(float sec) {
 
 void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec) {
 	unsigned int i, insertInd;
-	unsigned long timeToSchedule;
+	__xdata unsigned long timeToSchedule;
 	
 	if (scheduledCount == maxScheduleSize)
 		growSchedulingArrays();
