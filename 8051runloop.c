@@ -3,7 +3,7 @@
 // 8051runloop.c
 // Copyright ©2009 Bryan Henry <dev@apogee-dev.com>  
 //
-// 8051 Runloop - A simple runloop implementation for 8051-powered devices
+// Purpose: A simple runloop implementation for 8051-powered devices
 //
 // This is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
