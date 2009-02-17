@@ -1,7 +1,7 @@
 //-----------------------------------------------------------------------------
 //
-// 8051extensions.h
-// Copyright ©2009 Bryan Henry <dev@apogee-dev.com>  
+// 8051macros.h
+// Copyright ©2009 Bryan Henry <dev@apogee-dev.com>
 //
 //
 // This is free software: you can redistribute it and/or modify
@@ -19,10 +19,15 @@
 //
 //-----------------------------------------------------------------------------
 
-#ifndef __INCLUDED_8051extensions__
-#define __INCLUDED_8051extensions__
+#ifndef __INCLUDED_8051macros__
+#define __INCLUDED_8051macros__
 
-#include "8051runloop.h"
-#include "8051macros.h"
+#ifdef DEBUG
+	#define debugLog(...) \
+		printf("<DEBUG>"); \
+		printf(__VA_ARGS__);
+#else
+	#define debugLog(...) // Does nothing
+#endif
 
 #endif
