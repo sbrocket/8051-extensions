@@ -101,8 +101,8 @@ void runLoopCycle() {
 	bit oldPinState, pinState;
 	
 	// Check whether any registered input pins have changed state
-	// Polls pins at a freqency of ~10Hz
-	if (millisecondCount - lastPoll > 100) {
+	// Polls pins at a freqency of ~10Hz or on every loop if timer is off
+	if (millisecondCount - lastPoll > 100 || TR0 == 0) {
 		lastPoll = millisecondCount;
 		for (i = 0; i < registeredCount; ++i) {
 			bitMask = 0x01 << (i % 8);
@@ -129,8 +129,16 @@ void runLoopCycle() {
 	}
 }
 
+void pauseAllTimers() {
+	TR0 = 0;
+}
+
+void restartAllTimers() {
+	TR0 = 1;
+}
+
 void waitForTime(float sec) {
-	unsigned long endTime;
+	__xdata unsigned long endTime;
 	
 	endTime = millisecondCount + (unsigned char)(sec*1000);
 	while (millisecondCount < endTime) {
@@ -139,7 +147,7 @@ void waitForTime(float sec) {
 }
 
 void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec) {
-	unsigned int i, insertInd;
+	__xdata unsigned int i, insertInd;
 	__xdata unsigned long timeToSchedule;
 	
 	if (scheduledCount == maxScheduleSize)
@@ -164,7 +172,7 @@ void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec) {
 
 
 void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin, bit initCall) {
-	unsigned char bitMask, ind = registeredCount;
+	__xdata unsigned char bitMask, ind = registeredCount;
 
 	if (registeredCount == maxRegisterSize)
 		growEventRegisterArrays();
@@ -195,7 +203,7 @@ void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char por
 //-----------------------------------------------------------------------------
 
 void initTimer0() {
-	unsigned int timerReloadVal = roundNum(65536-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0))/1000);
+	__xdata unsigned int timerReloadVal = roundNum(65536-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0))/1000);
 	highReloadVal = timerReloadVal / 256;
 	lowReloadVal = timerReloadVal % 256;
 	
@@ -258,7 +266,7 @@ void growEventRegisterArrays() {
 	checkForNullPtr(curPinStates);
 }
 
-void checkForNullPtr(void *p) {
+void checkForNullPtr(void *p) __reentrant {
 	if (p == NULL) {
 		printf("<ERROR> Unable to allocate necessary memory!\n\r");
 		printf("<ERROR> Exiting - unable to continue.\n\r");
@@ -266,7 +274,7 @@ void checkForNullPtr(void *p) {
 	}
 }
 
-float roundNum(float n) {
+float roundNum(float n) __reentrant {
 	float intPart = floorf(n);
 	if (n-intPart >= 0.5)
 		return intPart+1;
@@ -275,7 +283,7 @@ float roundNum(float n) {
 }
 
 bit getPinState(struct PortPin* p) {
-	unsigned char bitMask = 0x1 << p->pin, result=0;
+	__xdata unsigned char bitMask = 0x1 << p->pin, result=0;
 
 	switch (p->port) {
 		case 0: result = P0 & bitMask; break;

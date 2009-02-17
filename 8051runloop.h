@@ -33,6 +33,9 @@ typedef void (*eventCallbackFunc)(void);
 //-----------------------------------------------------------------------------
 void initRunLoop();
 void runLoopCycle();
+void pauseAllTimers();
+void restartAllTimers();
+
 void waitForTime(float sec);
 void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec);
 void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin, bit initCall);
