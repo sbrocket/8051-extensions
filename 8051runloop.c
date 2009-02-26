@@ -1,10 +1,10 @@
 //-----------------------------------------------------------------------------
-//
+// 
 // 8051runloop.c
 // Copyright ©2009 Bryan Henry <dev@apogee-dev.com>  
-//
+// 
 // Purpose: A simple runloop implementation for 8051-powered devices
-//
+// 
 // This is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
@@ -17,7 +17,7 @@
 // 
 // You should have received a copy of the GNU General Public License
 // along with this software.  If not, see <http://www.gnu.org/licenses/>.
-//
+// 
 //-----------------------------------------------------------------------------
 
 #include "8051runloop.h"
@@ -45,6 +45,7 @@ void growEventRegisterArrays();
 bit getPinState(struct PortPin* pin);
 void checkForNullPtr(void *p);
 float roundNum(float n);
+void crash();
 
 //-----------------------------------------------------------------------------
 // Global declaractions
@@ -252,7 +253,7 @@ void growEventRegisterArrays() {
 	} else if (maxRegisterSize == UCHAR_MAX) {
 		printf("<ERROR> Attempted to register more than UCHAR_MAX (%u) events!\n\r", UCHAR_MAX);
 		printf("<ERROR> Exiting - unable to continue.\n\r");
-		*(NULL);		// no exit() func in SDCC stdlib.h, so we make our own
+		crash();
 	} else {
 		maxRegisterSize = UCHAR_MAX;
 	}
@@ -270,7 +271,7 @@ void checkForNullPtr(void *p) __reentrant {
 	if (p == NULL) {
 		printf("<ERROR> Unable to allocate necessary memory!\n\r");
 		printf("<ERROR> Exiting - unable to continue.\n\r");
-		*(NULL);		// no exit() func in SDCC stdlib.h, so we make our own
+		crash();
 	}
 }
 
@@ -296,4 +297,10 @@ bit getPinState(struct PortPin* p) {
 		return 1;
 	else
 		return 0;
+}
+
+void crash() {
+	// no exit() func in SDCC stdlib.h, so we make our own
+	int a = *((int*)NULL);
+	a;
 }
