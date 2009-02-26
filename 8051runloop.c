@@ -51,10 +51,11 @@ void crash();
 // Global declaractions
 //-----------------------------------------------------------------------------
 
-unsigned char highReloadVal, lowReloadVal;
+unsigned char highReloadVal, lowReloadVal, errReload;
 
 // Globals used for callback scheduling
 unsigned char scheduledCount, maxScheduleSize;
+volatile unsigned char errCountdown;
 volatile unsigned long millisecondCount;
 
 timedCallbackFunc* timedCallbackArray;
@@ -71,6 +72,13 @@ unsigned char* curPinStates;
 //-----------------------------------------------------------------------------
 // Public functions
 //-----------------------------------------------------------------------------
+
+void startRunLoop() {
+	initRunLoop();
+	while (1) {
+		runLoopCycle();
+	}
+}
 
 void initRunLoop() {
 	initTimer0();
@@ -204,9 +212,15 @@ void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char por
 //-----------------------------------------------------------------------------
 
 void initTimer0() {
-	__xdata unsigned int timerReloadVal = roundNum(65536-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0))/1000);
+	__xdata float tRV_Float, tRV_Int, tRV_Dec;
+	__xdata unsigned int timerReloadVal;
+	tRV_Float = 65536-MILLISECOND_GRANULARITY/(1/(SYSTEM_CLOCK/12.0f))/1000.0f;
+	tRV_Dec = modff(tRV_Float, &tRV_Int);
+	timerReloadVal = tRV_Int;
+	
 	highReloadVal = timerReloadVal / 256;
 	lowReloadVal = timerReloadVal % 256;
+	errReload = (unsigned char)(1/tRV_Dec);
 	
 	CKCON &= ~0x08;				// set Timer0 source to SYSCLK/12
 	TMOD &= ~0x0E;				
@@ -216,11 +230,22 @@ void initTimer0() {
 	
 	TH0 = highReloadVal;
 	TL0 = lowReloadVal;			// reset Timer0 counter to calc'd reload value
+	errCountdown = errReload;	// reset error correct countdown var to calc'd reload value
 	TR0 = 1;					// enable Timer0
 }
 
 void timer0ISR() __interrupt (1) {
 	millisecondCount += MILLISECOND_GRANULARITY;
+	
+	// Handles timing error correction when reload values be adjusted
+	// to exactly measure MILLISECOND_GRANULARITY milliseconds per interrupt
+	if (errReload != 0) {
+		--errCountdown;
+		if (errCountdown == 0) {
+			millisecondCount += MILLISECOND_GRANULARITY;
+			errCountdown = errReload;	// reset error correct countdown var to calc'd reload value
+		}
+	}
 	
 	// Reset the timer
 	TH0 = highReloadVal;

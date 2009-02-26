@@ -31,8 +31,10 @@ typedef void (*eventCallbackFunc)(void);
 //-----------------------------------------------------------------------------
 // Public function prototypes
 //-----------------------------------------------------------------------------
+void startRunLoop();
 void initRunLoop();
 void runLoopCycle();
+
 void pauseAllTimers();
 void restartAllTimers();
 
