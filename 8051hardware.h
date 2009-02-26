@@ -1,8 +1,7 @@
 //-----------------------------------------------------------------------------
 //
-// 8051extensions.h
+// 8051hardware.h
 // Copyright ©2009 Bryan Henry <dev@apogee-dev.com>  
-//
 //
 // This is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,11 +18,24 @@
 //
 //-----------------------------------------------------------------------------
 
-#ifndef __INCLUDED_8051extensions__
-#define __INCLUDED_8051extensions__
+#ifndef __INCLUDED_8051hardware__
+#define __INCLUDED_8051hardware__
 
-#include "8051runloop.h"
-#include "8051hardware.h"
-#include "8051macros.h"
+struct PortPin {
+	unsigned char port;
+	unsigned char pin;
+};
+
+typedef enum {
+	DigitalInput,
+	AnalogInput,
+	DigitalOutput
+} IOType;
+
+struct PortPin* newPortPin(unsigned char port, unsigned char pin);
+
+bit getPinState(struct PortPin* pin);
+void configurePinIO(struct PortPin* p, IOType type);
+void configurePinIOWithMask(unsigned char portNum, unsigned char bitMask, IOType type);
 
 #endif

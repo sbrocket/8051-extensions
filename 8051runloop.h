@@ -40,22 +40,8 @@ void restartAllTimers();
 
 void waitForTime(float sec);
 void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec);
-void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin, bit initCall);
-
+void registerForEventsOnDigitalInputPin(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin, bit initCall);
 void timer0ISR() __interrupt (1);
 
 #endif
 
-//-----------------------------------------------------------------------------
-//
-// EXAMPLE USAGE:
-// void main() {
-//   // other initializations
-//   initRunLoop();
-//
-//   while (1) {
-//	   runLoopCycle();
-//   }
-// }
-//
-//-----------------------------------------------------------------------------

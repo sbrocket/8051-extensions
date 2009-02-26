@@ -27,11 +27,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <limits.h>
-
-struct PortPin {
-	unsigned char port;
-	unsigned char pin;
-};
+#include "8051hardware.h"
 
 //-----------------------------------------------------------------------------
 // Private function prototypes
@@ -42,7 +38,6 @@ void initTimer0();
 void growSchedulingArrays();
 void growEventRegisterArrays();
 
-bit getPinState(struct PortPin* pin);
 void checkForNullPtr(void *p);
 float roundNum(float n);
 void crash();
@@ -51,23 +46,23 @@ void crash();
 // Global declaractions
 //-----------------------------------------------------------------------------
 
-unsigned char highReloadVal, lowReloadVal, errReload;
+__xdata unsigned char highReloadVal, lowReloadVal, errReload;
 
 // Globals used for callback scheduling
-unsigned char scheduledCount, maxScheduleSize;
-volatile unsigned char errCountdown;
-volatile unsigned long millisecondCount;
+__xdata unsigned char scheduledCount, maxScheduleSize;
+__xdata volatile unsigned char errCountdown;
+__xdata volatile unsigned long millisecondCount;
 
-timedCallbackFunc* timedCallbackArray;
-unsigned long* timeScheduledArray;
+__xdata timedCallbackFunc* timedCallbackArray;
+__xdata unsigned long* timeScheduledArray;
 
 // Globals used for event registering
-unsigned char registeredCount, maxRegisterSize;
-unsigned long lastPoll;
+__xdata unsigned char registeredCount, maxRegisterSize;
+__xdata unsigned long lastPoll;
 
-eventCallbackFunc* eventCallbackArray;
-struct PortPin* registeredPins;
-unsigned char* curPinStates;
+__xdata eventCallbackFunc* eventCallbackArray;
+__xdata struct PortPin* registeredPins;
+__xdata unsigned char* curPinStates;
 
 //-----------------------------------------------------------------------------
 // Public functions
@@ -124,7 +119,7 @@ void runLoopCycle() {
 					curPinStates[i/8] |= bitMask;
 				else
 					curPinStates[i/8] &= ~bitMask;
-				}
+			}
 		}
 	}
 	
@@ -180,12 +175,12 @@ void scheduleTimedCallbackInRunLoop(timedCallbackFunc funcPtr, float sec) {
 }
 
 
-void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin, bit initCall) {
+void registerForEventsOnDigitalInputPin(eventCallbackFunc funcPtr, unsigned char port, unsigned char pin, bit initCall) {
 	__xdata unsigned char bitMask, ind = registeredCount;
-
+	
 	if (registeredCount == maxRegisterSize)
 		growEventRegisterArrays();
-
+	
 	if (port > 3 || pin > 7) {
 		printf("<WARNING> Attempted to register for events on invalid pin P%u.%u!\n\r", port, pin);
 		return;
@@ -194,6 +189,8 @@ void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char por
 	eventCallbackArray[ind] = funcPtr;
 	registeredPins[ind].port = port;
 	registeredPins[ind].pin = pin;
+	
+	configurePinIO(&registeredPins[ind], DigitalInput);	
 
 	bitMask = 0x01 << (ind % 8);
 	if (getPinState(&registeredPins[ind]))
@@ -202,7 +199,7 @@ void registerForEventCallbacksOnPin(eventCallbackFunc funcPtr, unsigned char por
 		curPinStates[ind/8] &= ~bitMask;
 	
 	++registeredCount;
-
+	
 	if (initCall)
 		(*funcPtr)();
 }
@@ -306,22 +303,6 @@ float roundNum(float n) __reentrant {
 		return intPart+1;
 	else
 		return intPart;
-}
-
-bit getPinState(struct PortPin* p) {
-	__xdata unsigned char bitMask = 0x1 << p->pin, result=0;
-
-	switch (p->port) {
-		case 0: result = P0 & bitMask; break;
-		case 1: result = P1 & bitMask; break;
-		case 2: result = P2 & bitMask; break;
-		case 3: result = P3 & bitMask; break;
-	}
-
-	if (result)
-		return 1;
-	else
-		return 0;
 }
 
 void crash() {
