@@ -34,8 +34,14 @@ typedef enum {
 
 struct PortPin* newPortPin(unsigned char port, unsigned char pin);
 
-bit getPinState(struct PortPin* pin);
 void configurePinIO(struct PortPin* p, IOType type);
 void configurePinIOWithMask(unsigned char portNum, unsigned char bitMask, IOType type);
+
+// Digital input
+bit getPinState(struct PortPin* pin);
+
+// Analog-digital conversion
+void configureADCOnPin(struct PortPin *p);
+unsigned char performADC();
 
 #endif
